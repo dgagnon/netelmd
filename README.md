@@ -1,6 +1,18 @@
-netelmd
-=======
+=== What is NetelMD ===
+NetelMD is a drop-in replacement for hardware RAID solutions using UDEV and MDADM on linux.  Currently supports only 2 drives RAID1.
 
-Automatic md handling
+=== Requirements ===
+* MDADM
+* UDEV
+* sfdisk
+* blockdev
+* sgpio
+* lsscsi
+* python
+* smartctl
+* base64
+* hdparm
+* ipmi-chassis
 
-test
+
+===
