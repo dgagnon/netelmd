@@ -1,1 +1,0 @@
-KERNEL=="sd[a-z]", ACTION=="change|remove", PROGRAM="/sbin/automd"

@@ -4,12 +4,12 @@
 DEBUG=true
 DRYRUN=false
 ECHOOUT=true
-LOGFILE="/root/automd/output.log"
+LOGFILE="/root/netelmd/output.log"
 NEEDEDPROG="mount grep awk udevadm mdadm mv which env sfdisk blockdev sgpio lsscsi python shyml smartctl base64 hdparm ipmi-chassis"
 PMODULES="yaml"
-CONFFILE="/root/automd/test.yml"
-BAKCONFFILE="/root/.automd.yml.bak"
-LOCKFILE="/var/run/automd.lock"
+CONFFILE="/root/netelmd/test.yml"
+BAKCONFFILE="/root/.netelmd.yml.bak"
+LOCKFILE="/var/run/netelmd.lock"
 declare ERRNUM=0
 declare -a ERRMSG
 
@@ -576,7 +576,7 @@ case "$ACTION" in
     enablecache) wcache 1 $DEVICE;;
     disablecache) wcache 0 $DEVICE;;
     change) nothing;;
-    *) output "echo 'Usage: automd (resetdisk|buildconf|add|addraw|fail|remove|rebuildfinished|rebuildstarted) sd[a-z] [force]'";;
+    *) output "echo 'Usage: netelmd (resetdisk|buildconf|add|addraw|fail|remove|rebuildfinished|rebuildstarted) sd[a-z] [force]'";;
 esac
 
 if [[ "$DEBUG" == "true" ]]; then
