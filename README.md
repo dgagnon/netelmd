@@ -17,7 +17,7 @@ NetelMD is a drop-in replacement for hardware RAID solutions using UDEV and MDAD
 
 ### Installation
 + Run "install.sh"
-+ Run "netelmd build"
++ Run "netelmd buildconf"
 
 
 ### Limitation
