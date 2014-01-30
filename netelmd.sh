@@ -3,11 +3,11 @@
 #set -x
 DEBUG=true
 DRYRUN=false
-ECHOOUT=true
-LOGFILE="/root/netelmd/output.log"
+ECHOOUT=false
+LOGFILE="/var/log/netelmd.log"
 NEEDEDPROG="mount grep awk udevadm mdadm mv which env sfdisk blockdev sgpio lsscsi python shyml smartctl base64 hdparm ipmi-chassis"
 PMODULES="yaml"
-CONFFILE="/root/netelmd/test.yml"
+CONFFILE="/etc/sysconfig/netelmd.yml"
 BAKCONFFILE="/root/.netelmd.yml.bak"
 LOCKFILE="/var/run/netelmd.lock"
 declare ERRNUM=0
@@ -71,6 +71,16 @@ function getidbydev () {
 
 function chassis_light () {
     output "ipmi-chassis --chassis-identify=$1"
+}
+
+function check_bl () {
+    bl=0
+    model="$(udevadm info --query=all --name=$1 | grep -o -E "ID_MODEL=([a-zA-Z0-9\_]*)" | awk -F'=' '{print $2}')"
+    case "$model" in
+        *iSCSI) bl=1;;
+        *) bl=0;;
+    esac
+    echo $bl
 }
 
 function light () {
@@ -155,7 +165,7 @@ function buildconf () {
         setvar "raid.${i}.faileddev" "$(mdadm --detail /dev/$i | grep 'Failed Devices' | awk '{print $4}')"
         setvar "raid.${i}.level" "$(mdadm --detail /dev/$i | grep 'Raid Level' | awk '{print $4}')"
         [[ $(getvar "raid.${i}.level") != "raid1" ]] && output "echo WARNING: Only RAID1 is supported at the moment." && error && return 1
-        setvar "raid.${i}.state" "$(mdadm --detail /dev/$i | grep 'State' | awk -F':' '{print $2}' | tr -d " " | grep -o -E '[a-z,]*')'"
+        setvar "raid.${i}.state" "$(mdadm --detail /dev/$i | grep 'State' | awk -F':' '{print $2}' | tr -d " " | grep -o -E '[a-z,]*')"
         setvar "raid.${i}.metadata" "$(mdadm --detail /dev/$i | grep 'Version' | awk -F':' '{print $2}' | grep -o -E '[0-9\.]*')"
         setvar "raid.${i}.mount" "$(grep /dev/$i /proc/mounts | awk '{print $2}')"
         setvar "raid.${i}.uuid" "$(mdadm --detail /dev/$i | grep UUID | awk '{print $3}')"
@@ -233,15 +243,18 @@ function fail () {
         output "echo Device not in saved RAID config and not in /dev, continuing with a device change"
         DEVICECHANGE=true
         # BUG: this needs to be fixed for other raid levels
+    iter=0
         for i in $(getvar "raid.members");do
             if [[ -b /dev/$i ]];then
                 ISACTIVE=$i
                 output "echo Device $i is available"
+        iter=$iter+1
             else
                 ISDEAD=$i
                 output "echo Device $i is not available"
             fi
         done
+    [[ "$iter" != 0 ]] && output "echo Two devices are available, this should not happen" && error && return 1
         SOURCEDEV=$ISDEAD
     else
         SOURCEDEV=$1
@@ -534,12 +547,12 @@ else
         output "echo Ran from udevd"
         ACTION="$ACTION"
         DEVICE="$(echo $DEVNAME | grep -o -E 'sd[a-z]*|md[0-9]*' )"
-        FORCE="force"
+        FORCE=""
     elif [[ $(top_level_parent_pid) =~ .*mdadm.* ]];then
         output "echo Ran from mdmonitor"
         ACTION="$(echo $1|tr '[:upper:]' '[:lower:]')"
         DEVICE="$(echo $2|grep -o -E 'sd[a-z]*|md[0-9]*')"
-        FORCE="force"
+        FORCE=""
         [[ "$DEVICE" =~ md[0-9]* && "$3" =~ .*sd[a-z]* ]] && DEVICE="$(echo $3|grep -o -E 'sd[a-z]*')"
         [[ -z "$DEVICE" && ! -z "$3" ]] && DEVICE="$(echo $3|grep -o -E 'sd[a-z]*')"
     else
@@ -556,6 +569,14 @@ if [[ "$ACTION" != "buildconf" ]];then
         buildconf
     fi
 fi
+
+# Check if device has been blacklisted
+
+RET=$(check_bl "$DEVICE")
+if [[ $RET > 0 ]];then
+    output "echo $DEVICE has been blacklisted by model"
+    error
+else
 
 case "$ACTION" in
     buildconf) buildconf;;
@@ -578,7 +599,7 @@ case "$ACTION" in
     change) nothing;;
     *) output "echo 'Usage: netelmd (resetdisk|buildconf|add|addraw|fail|remove|rebuildfinished|rebuildstarted) sd[a-z] [force]'";;
 esac
-
+fi
 if [[ "$DEBUG" == "true" ]]; then
     echo "" >> $LOGFILE
     echo "Action was: $ACTION" >> $LOGFILE
